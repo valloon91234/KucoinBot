@@ -44,7 +44,7 @@ namespace KuCoin.NET.Rest
         static Market inst = new Market();
 
         static bool creating = false;
-        
+
         public event EventHandler MarketLoaded;
 
         public static event EventHandler MarketRefreshed;
@@ -97,7 +97,7 @@ namespace KuCoin.NET.Rest
         {
             get => symbols != null && symbols.Count > 0 && currencies != null && currencies.Count > 0;
         }
-       
+
         /// <summary>
         /// Gets the singleton instance of <see cref="Market"/>.
         /// </summary>
@@ -213,7 +213,8 @@ namespace KuCoin.NET.Rest
 
 
             Symbols = new ObservableDictionary<string, TradingSymbol>(
-                new Comparison<TradingSymbol>((a, b) => {
+                new Comparison<TradingSymbol>((a, b) =>
+                {
                     return string.Compare(a.Symbol, b.Symbol);
                 }), ListSortDirection.Ascending, results);
 
@@ -234,7 +235,8 @@ namespace KuCoin.NET.Rest
             var results = jobj.ToObject<List<MarketCurrency>>();
 
             Currencies = new ObservableDictionary<string, MarketCurrency>(
-                new Comparison<MarketCurrency>((a, b) => {
+                new Comparison<MarketCurrency>((a, b) =>
+                {
                     return string.Compare(a.Currency, b.Currency);
                 }), ListSortDirection.Ascending, results);
 
@@ -414,7 +416,7 @@ namespace KuCoin.NET.Rest
         /// <param name="startTime">Start time</param>
         /// <param name="endTime">End time</param>
         /// <returns>A list of candlesticks</returns>
-        public async Task<List<Candle>> GetKline(string symbol, KlineType type, DateTime? startTime = null, DateTime? endTime = null) 
+        public async Task<List<Candle>> GetKline(string symbol, KlineType type, DateTime? startTime = null, DateTime? endTime = null)
         {
             return await GetKline<Candle, Candle, List<Candle>>(symbol, type, startTime, endTime);
         }
@@ -436,13 +438,13 @@ namespace KuCoin.NET.Rest
         /// <typeparam name="TCol">The type of the collection that contains <typeparamref name="TCustom"/> objects.</typeparam>
         /// <returns>A list of candlesticks</returns>
         public async Task<TCol> GetKline<TCandle, TCustom, TCol>(
-            string symbol, 
-            KlineType type, 
-            DateTime? startTime = null, 
+            string symbol,
+            KlineType type,
+            DateTime? startTime = null,
             DateTime? endTime = null
-            ) 
-            where TCandle: IFullCandle, TCustom, new() 
-            where TCol: IList<TCustom>, new()
+            )
+            where TCandle : IFullCandle, TCustom, new()
+            where TCol : IList<TCustom>, new()
         {
             var curl = "/api/v1/market/candles";
 
@@ -454,7 +456,7 @@ namespace KuCoin.NET.Rest
             param.Add("symbol", symbol);
             param.Add("type", (string)type);
 
-            
+
             if (startTime == null)
             {
                 st = 0;
@@ -472,7 +474,7 @@ namespace KuCoin.NET.Rest
             }
             else
             {
-                d = (DateTime)startTime;
+                d = (DateTime)endTime;
                 et = EpochTime.DateToSeconds(d);
                 param.Add("endAt", et.ToString());
             }

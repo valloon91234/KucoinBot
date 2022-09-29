@@ -165,9 +165,42 @@ namespace Valloon.Kucoin
                                         var symbol = array[1].ToUpper();
                                         var size = decimal.Parse(array[2]);
                                         var timeout = array.Length > 3 ? int.Parse(array[3]) : 0;
-                                        string replyMessageText = KucoinClient.Buy(symbol, size, timeout);
+                                        string replyMessageText = KucoinClient.Buy(symbol, size, timeout, out var _);
                                         await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
                                         ReplyId = chatId;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        string replyMessageText = "Invalid input: " + ex.Message;
+                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
+                                    }
+                                }
+                                break;
+                            case string x when x.StartsWith("/order", StringComparison.OrdinalIgnoreCase):
+                                if (isAdmin)
+                                {
+                                    try
+                                    {
+                                        var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                                        DateTime startTime = DateTime.ParseExact(array[1] + " " + array[2], "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+                                        var symbol = array[3].ToUpper();
+                                        var size = decimal.Parse(array[4]);
+                                        var timeout = array.Length > 3 ? int.Parse(array[5]) : 0;
+                                        while (startTime > DateTime.UtcNow)
+                                        {
+                                            Console.WriteLine($"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
+                                            Thread.Sleep(1000);
+                                        }
+                                        int tryCount = 0;
+                                        while (tryCount < 10)
+                                        {
+                                            tryCount++;
+                                            string replyMessageText = KucoinClient.Buy(symbol, size, timeout, out var e);
+                                            await botClient.SendTextMessageAsync(chatId: chatId, text: $"[{tryCount}]    {replyMessageText}", cancellationToken: cancellationToken, parseMode: ParseMode.Html);
+                                            ReplyId = chatId;
+                                            if (e == null) break;
+                                            Thread.Sleep(1000);
+                                        }
                                     }
                                     catch (Exception ex)
                                     {
@@ -216,7 +249,7 @@ namespace Valloon.Kucoin
                                         var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                                         var pattern = array[1];
                                         string replyMessageText = KucoinClient.FindSymbol(pattern);
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
+                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
                                     }
                                     catch (Exception ex)
                                     {

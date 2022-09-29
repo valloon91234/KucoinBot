@@ -1,6 +1,7 @@
 ﻿using KuCoin.NET.Data.Market;
 using KuCoin.NET.Data.Order;
 using KuCoin.NET.Data.User;
+using KuCoin.NET.Helpers;
 using KuCoin.NET.Rest;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -39,12 +40,13 @@ namespace Valloon.Kucoin
                 List<string> resultList = new();
                 foreach (var key in symbols.Keys)
                 {
-                    if (key.Contains(pattern, StringComparison.OrdinalIgnoreCase)) resultList.Add(key);
+                    if (key.Contains(pattern, StringComparison.OrdinalIgnoreCase)) resultList.Add(key + "    " + symbols[key].QuoteMaxSize);
                 }
                 if (resultList.Count > 0)
                 {
+                    //var resultText = JContainer.FromObject(resultList).ToString();
                     var resultText = string.Join('\n', resultList).Trim();
-                    return resultText;
+                    return "<pre>" + resultText + "</pre>";
                 }
                 else
                 {
@@ -53,8 +55,10 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red);
-                return ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message);
+                return message;
             }
         }
 
@@ -70,12 +74,14 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red);
-                return ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message);
+                return message;
             }
         }
 
-        public static string Buy(string symbol, decimal size, int timeout)
+        public static string Buy(string symbol, decimal size, int timeout, out Exception? e)
         {
             try
             {
@@ -101,20 +107,40 @@ namespace Valloon.Kucoin
                 var balance = balanceResult[0].Available;
 
                 var candleList = Market.Instance.GetKline(Symbol, KlineType.Min1).Result;
-                StartPrice = candleList[candleList.Count - 2].OpenPrice;
+                if (candleList.Count > 1)
+                    StartPrice = candleList[candleList.Count - 2].OpenPrice;
+                else
+                    StartPrice = candleList.Last().OpenPrice;
 
                 var ticker = Market.Instance.GetTicker(Symbol).Result;
                 var currentPrice = ticker.Price;
                 BuyPrice = size / balance;
 
-                return $"<pre>{currency} Balance = {balance}\nstart = {StartPrice} / {currentPrice} = {currentPrice / StartPrice:F2}\nbuy = {BuyPrice:F3} / {currentPrice} = {currentPrice / BuyPrice:F2}</pre>";
+                decimal closePrice = BuyPrice * 1.5m;
+                var orderResult2 = tradeApi.CreateLimitSpotOrder(new LimitOrder
+                {
+                    ClientOid = DateTime.UtcNow.ToString("HHmmssfff"),
+                    Side = Side.Sell,
+                    Symbol = Symbol,
+                    Type = OrderType.Limit,
+                    Remark = $"Close",
+                    Price = closePrice,
+                    Size = 1000000
+                }).Result;
+                var orderResultText2 = JContainer.FromObject(orderResult2).ToString();
+
+                e = null;
+                return $"<pre>{currency} Balance = {balance}\nstart = {StartPrice} / {currentPrice} = {currentPrice / StartPrice:F2}\nbuy = {BuyPrice:F3} / {currentPrice} = {currentPrice / BuyPrice:F2}\nclose = {closePrice}</pre>";
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red);
+                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
                 Symbol = null;
                 Timeout = 0;
-                return ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                e = ex;
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message);
+                return message;
             }
         }
 
@@ -158,8 +184,10 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red);
-                return ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message);
+                return message;
             }
         }
 
@@ -176,8 +204,10 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red);
-                return ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message);
+                return message;
             }
         }
 
