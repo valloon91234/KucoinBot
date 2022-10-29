@@ -19,9 +19,9 @@ namespace Valloon.Kucoin
 
         public static bool LoadCSV(string symbol, DateTime startTime, DateTime? endTime = null)
         {
-            Logger.WriteLine($"Starting  {symbol}  {startTime:yyyy-MM-dd HH:mm}");
+            Logger.WriteLine($"Loading  {symbol} / {startTime:yyyy-MM-dd HH:mm}");
             if (endTime == null) endTime = DateTime.UtcNow;
-            string filename = $"data-{symbol}-1m  {startTime:yyyy-MM-dd HH.mm}.csv";
+            string filename = $"data-{symbol}.csv";
             File.Delete(filename);
             using var writer = new StreamWriter(filename, false, Encoding.UTF8);
             writer.WriteLine($"timestamp,open,high,low,close,volume");
@@ -32,7 +32,7 @@ namespace Valloon.Kucoin
                     if (startTime > endTime.Value)
                         break;
                     var nextTime = startTime.AddDays(1);
-                    var list = Market.Instance.GetKline(symbol, KlineType.Min1, startTime, nextTime).Result;
+                    var list = Market.Instance.GetKline(symbol + "-USDT", KlineType.Min1, startTime, nextTime).Result;
                     int count = list.Count;
                     for (int i = 0; i < count; i++)
                     {
@@ -40,7 +40,8 @@ namespace Valloon.Kucoin
                         writer.WriteLine($"{t.Timestamp:yyyy-MM-dd HH:mm:ss},{t.OpenPrice},{t.HighPrice},{t.LowPrice},{t.ClosePrice},{t.Volume}");
                         writer.Flush();
                     }
-                    Console.WriteLine($"Inserted: {startTime:yyyy-MM-dd HH:mm}");
+                    Console.WriteLine($"{symbol} / {startTime:yyyy-MM-dd HH:mm}");
+                    Console.Title = $"{symbol} / {startTime:yyyy-MM-dd HH:mm}";
                     startTime = nextTime;
                     Thread.Sleep(1000);
                 }
@@ -53,6 +54,8 @@ namespace Valloon.Kucoin
                         Thread.Sleep(1000);
                         continue;
                     }
+                    writer.Dispose();
+                    File.Delete(filename);
                     return false;
                 }
             }

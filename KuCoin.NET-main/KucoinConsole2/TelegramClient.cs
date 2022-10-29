@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using KuCoin.NET.Data.Market;
+using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -138,36 +140,18 @@ namespace Valloon.Kucoin
                                     await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
                                 }
                                 break;
-                            case "/i":
-                            case "/info":
+                            case string x when x.StartsWith("/a", StringComparison.OrdinalIgnoreCase):
                                 if (isAdmin)
                                 {
                                     try
                                     {
-                                        string replyMessageText = KucoinClient.Info();
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
                                         ReplyId = chatId;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        string replyMessageText = "Invalid input: " + ex.Message;
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
-                                    }
-                                }
-                                break;
-                            case string x when x.StartsWith("/buy", StringComparison.OrdinalIgnoreCase):
-                                if (isAdmin)
-                                {
-                                    try
-                                    {
                                         var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                                         var symbol = array[1].ToUpper();
-                                        var size = decimal.Parse(array[2]);
-                                        var timeout = int.Parse(array[3]);
-                                        var closeX = decimal.Parse(array[4]);
-                                        string replyMessageText = KucoinClient.Buy(symbol, size, timeout, closeX, out var _);
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
-                                        ReplyId = chatId;
+                                        string timeString = array[2];
+                                        DateTime time = DateTime.ParseExact(timeString, "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+                                        KucoinClient.Symbol = symbol;
+                                        KucoinClient.StartTime = time;
                                     }
                                     catch (Exception ex)
                                     {
@@ -176,70 +160,22 @@ namespace Valloon.Kucoin
                                     }
                                 }
                                 break;
-                            //case string x when x.StartsWith("/order", StringComparison.OrdinalIgnoreCase):
-                            //    if (isAdmin)
-                            //    {
-                            //        try
-                            //        {
-                            //            var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                            //            DateTime startTime = DateTime.ParseExact(array[1] + " " + array[2], "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-                            //            var symbol = array[3].ToUpper();
-                            //            var size = decimal.Parse(array[4]);
-                            //            var timeout = array.Length > 3 ? int.Parse(array[5]) : 0;
-                            //            while (startTime > DateTime.UtcNow)
-                            //            {
-                            //                Console.WriteLine($"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
-                            //                Thread.Sleep(1000);
-                            //            }
-                            //            int tryCount = 0;
-                            //            while (tryCount < 10)
-                            //            {
-                            //                tryCount++;
-                            //                string replyMessageText = KucoinClient.Buy(symbol, size, timeout, out var e);
-                            //                await botClient.SendTextMessageAsync(chatId: chatId, text: $"[{tryCount}]    {replyMessageText}", cancellationToken: cancellationToken, parseMode: ParseMode.Html);
-                            //                ReplyId = chatId;
-                            //                if (e == null) break;
-                            //                Thread.Sleep(1000);
-                            //            }
-                            //        }
-                            //        catch (Exception ex)
-                            //        {
-                            //            string replyMessageText = "Invalid input: " + ex.Message;
-                            //            await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
-                            //        }
-                            //    }
-                            //    break;
-                            case string x when x.StartsWith("/close", StringComparison.OrdinalIgnoreCase):
+                            case "/f":
                                 if (isAdmin)
                                 {
-                                    try
-                                    {
-                                        var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                                        decimal newCloseX = decimal.Parse(array[1]);
-                                        string replyMessageText = KucoinClient.Close2(newCloseX);
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
-                                        ReplyId = chatId;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        string replyMessageText = "Invalid input: " + ex.Message;
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
-                                    }
+                                    KucoinClient.Symbol = null;
+                                    KucoinClient.StartTime = null;
+                                    string replyMessageText = "Stopped";
+                                    await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken);
                                 }
                                 break;
                             case "/s":
-                            case string x when x.StartsWith("/sell", StringComparison.OrdinalIgnoreCase):
                                 if (isAdmin)
                                 {
                                     try
                                     {
-                                        var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-                                        string? symbol = array.Length > 1 ? array[1].ToUpper() : null;
-                                        decimal? size = array.Length > 2 ? decimal.Parse(array[2]) : null;
-                                        int timeout = array.Length > 3 ? int.Parse(array[3]) : 0;
-                                        string replyMessageText = KucoinClient.Sell(symbol, size, timeout);
-                                        await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
                                         ReplyId = chatId;
+                                        KucoinClient.CloseMarket();
                                     }
                                     catch (Exception ex)
                                     {
@@ -251,6 +187,7 @@ namespace Valloon.Kucoin
                             case string x when x.StartsWith("/balance", StringComparison.OrdinalIgnoreCase):
                                 if (isAdmin)
                                 {
+                                    ReplyId = chatId;
                                     string? currency = null, accountType = null;
                                     var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
                                     if (array.Length > 1) currency = array[1].ToUpper();
@@ -262,6 +199,7 @@ namespace Valloon.Kucoin
                             case string x when x.StartsWith("/symbol", StringComparison.OrdinalIgnoreCase):
                                 if (isAdmin)
                                 {
+                                    ReplyId = chatId;
                                     try
                                     {
                                         var array = command.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);

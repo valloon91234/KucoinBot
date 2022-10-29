@@ -5,6 +5,7 @@ using KuCoin.NET.Helpers;
 using KuCoin.NET.Rest;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Data.SqlTypes;
 using System.Drawing;
 using Telegram.Bot.Types.Enums;
 
@@ -55,9 +56,9 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                logger!.WriteFile(ex.ToString());
                 string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
-                Logger.WriteLine(message);
+                Logger.WriteLine(message, ConsoleColor.Red);
                 return message;
             }
         }
@@ -74,21 +75,25 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                logger!.WriteFile(ex.ToString());
                 string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
-                Logger.WriteLine(message);
+                Logger.WriteLine(message, ConsoleColor.Red);
                 return message;
             }
         }
 
-        public static string Buy(string symbol, decimal size, int timeout, out Exception? e)
+        static OrderReceipt? closeOrderResult;
+        static byte Scale;
+        static decimal CoinBalance;
+
+        public static string Buy(string symbol, decimal size, int timeout, decimal closeX, out Exception? e)
         {
             try
             {
                 Trade tradeApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
                 var orderResult = tradeApi.CreateMarketSpotOrder(new MarketOrder
                 {
-                    ClientOid = DateTime.UtcNow.ToString("HHmmssfff"),
+                    ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
                     Side = Side.Buy,
                     Symbol = symbol,
                     Type = OrderType.Market,
@@ -104,7 +109,7 @@ namespace Valloon.Kucoin
                 User userApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
                 var currency = symbol.Split('-')[0];
                 var balanceResult = userApi.GetAccountList(currency, AccountType.Trading).Result;
-                var balance = balanceResult[0].Available;
+                CoinBalance = balanceResult[0].Available;
 
                 var candleList = Market.Instance.GetKline(Symbol, KlineType.Min1).Result;
                 if (candleList.Count > 1)
@@ -114,32 +119,90 @@ namespace Valloon.Kucoin
 
                 var ticker = Market.Instance.GetTicker(Symbol).Result;
                 var currentPrice = ticker.Price;
-                BuyPrice = size / balance;
+                Scale = ((SqlDecimal)currentPrice).Scale;
+                BuyPrice = size / CoinBalance;
 
-                decimal closePrice = BuyPrice * 1.5m;
-                var orderResult2 = tradeApi.CreateLimitSpotOrder(new LimitOrder
+                decimal closePrice = decimal.Round(BuyPrice * closeX, Scale);
+                decimal closeSize = decimal.Round(CoinBalance, 4, MidpointRounding.ToZero);
+
+                closeOrderResult = tradeApi.CreateLimitSpotOrder(new LimitOrder
                 {
-                    ClientOid = DateTime.UtcNow.ToString("HHmmssfff"),
+                    ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
                     Side = Side.Sell,
                     Symbol = Symbol,
                     Type = OrderType.Limit,
                     Remark = $"Close",
                     Price = closePrice,
-                    Size = 1000000
+                    Size = closeSize
                 }).Result;
-                var orderResultText2 = JContainer.FromObject(orderResult2).ToString();
+                var orderResultText2 = JContainer.FromObject(closeOrderResult).ToString();
 
                 e = null;
-                return $"<pre>{currency} Balance = {balance}\nstart = {StartPrice} / {currentPrice} = {currentPrice / StartPrice:F2}\nbuy = {BuyPrice:F3} / {currentPrice} = {currentPrice / BuyPrice:F2}\nclose = {closePrice}</pre>";
+                return $"<pre>{currency} Balance = {CoinBalance}\nstart = {StartPrice}\nentry = {BuyPrice:F3}\nclose = {closePrice}</pre>";
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                logger!.WriteFile(ex.ToString());
                 Symbol = null;
                 Timeout = 0;
                 e = ex;
                 string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
-                Logger.WriteLine(message);
+                Logger.WriteLine(message, ConsoleColor.Red);
+                return message;
+            }
+        }
+
+        public static string Close2(decimal newCloseX)
+        {
+            Trade tradeApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
+            while (closeOrderResult != null)
+            {
+                try
+                {
+                    var canceledResult = tradeApi.CancelOrderById(closeOrderResult.OrderId).Result;
+                    var canceledResultText = JToken.FromObject(canceledResult).ToString();
+                    logger!.WriteLine("order canceled: " + canceledResultText, ConsoleColor.Green);
+                    closeOrderResult = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    logger!.WriteFile(ex.ToString());
+                    string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                    logger!.WriteLine("cancel order: " + message, ConsoleColor.Red, false);
+                    if (message.Contains("order_not_exist_or_not_allow_to_cancel"))
+                    {
+                        closeOrderResult = null;
+                        break;
+                    }
+                }
+                Thread.Sleep(1000);
+            }
+
+            decimal closePrice = decimal.Round(BuyPrice * newCloseX, Scale);
+            decimal closeSize = decimal.Round(CoinBalance, 4, MidpointRounding.ToZero);
+
+            try
+            {
+                closeOrderResult = tradeApi.CreateLimitSpotOrder(new LimitOrder
+                {
+                    ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
+                    Side = Side.Sell,
+                    Symbol = Symbol,
+                    Type = OrderType.Limit,
+                    Remark = $"Close",
+                    Price = closePrice,
+                    Size = closeSize
+                }).Result;
+                var orderResultText = JContainer.FromObject(closeOrderResult).ToString();
+                logger!.WriteLine(orderResultText, ConsoleColor.Green);
+                return $"<pre>New Close = {closePrice}</pre>";
+            }
+            catch (Exception ex)
+            {
+                logger!.WriteFile(ex.ToString());
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message, ConsoleColor.Red);
                 return message;
             }
         }
@@ -153,12 +216,37 @@ namespace Valloon.Kucoin
                 Timeout = timeout;
                 return $"Timeout = {Timeout}";
             }
+
+            Trade tradeApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
+            while (closeOrderResult != null)
+            {
+                try
+                {
+                    var canceledResult = tradeApi.CancelOrderById(closeOrderResult.OrderId).Result;
+                    var canceledResultText = JToken.FromObject(canceledResult).ToString();
+                    logger!.WriteLine("order canceled: " + canceledResultText, ConsoleColor.Green);
+                    closeOrderResult = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    logger.WriteFile(ex.ToString());
+                    string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                    logger!.WriteLine("cancel order: " + message, ConsoleColor.Red, false);
+                    if (message.Contains("order_not_exist_or_not_allow_to_cancel"))
+                    {
+                        closeOrderResult = null;
+                        break;
+                    }
+                }
+                Thread.Sleep(1000);
+            }
+
             try
             {
-                Trade tradeApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
                 var orderResult = tradeApi.CreateMarketSpotOrder(new MarketOrder
                 {
-                    ClientOid = DateTime.UtcNow.ToString("HHmmssfff"),
+                    ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
                     Side = Side.Sell,
                     Symbol = Symbol,
                     Type = OrderType.Market,
@@ -184,9 +272,9 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                logger!.WriteFile(ex.ToString());
                 string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
-                Logger.WriteLine(message);
+                Logger.WriteLine(message, ConsoleColor.Red);
                 return message;
             }
         }
@@ -204,9 +292,9 @@ namespace Valloon.Kucoin
             }
             catch (Exception ex)
             {
-                logger!.WriteLine(ex.ToString(), ConsoleColor.Red, false);
+                logger!.WriteFile(ex.ToString());
                 string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
-                Logger.WriteLine(message);
+                Logger.WriteLine(message, ConsoleColor.Red);
                 return message;
             }
         }

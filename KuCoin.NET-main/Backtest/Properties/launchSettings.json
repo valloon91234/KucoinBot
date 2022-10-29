@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Backtest": {
+      "commandName": "Project",
+      "commandLineArgs": "/test \"PUMLX,XETA,GEM,DERC,POOLS,TRIBL\" 5 0.03 0.3 0.8 2 0.02 5 5 0.03 0.3 0.5 2 0.00 60 10000 100000"
+    }
+  }
+}

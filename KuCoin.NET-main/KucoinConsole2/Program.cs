@@ -9,8 +9,10 @@ AppHelper.FixCulture();
 
 // See https://github.com/tonerdo/dotnet-env
 DotNetEnv.Env.Load("config.env");
+TelegramClient.Init();
 KucoinClient.Init();
 KucoinClient.Run();
 
+Console.WriteLine();
 Console.WriteLine("Press any key to exit...");
 Console.Read();
