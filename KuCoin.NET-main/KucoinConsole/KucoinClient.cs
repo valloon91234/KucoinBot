@@ -88,9 +88,10 @@ namespace Valloon.Kucoin
 
         public static string Buy(string symbol, decimal size, int timeout, decimal closeX, out Exception? e)
         {
+            string returnMessage = "";
+            Trade tradeApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
             try
             {
-                Trade tradeApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
                 var orderResult = tradeApi.CreateMarketSpotOrder(new MarketOrder
                 {
                     ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
@@ -102,12 +103,24 @@ namespace Valloon.Kucoin
                 }).Result;
                 var orderResultText = JContainer.FromObject(orderResult).ToString();
                 logger!.WriteLine(orderResultText, ConsoleColor.Green);
-
+                returnMessage += $"Bought: size = {size}\n";
                 Symbol = symbol;
                 Timeout = timeout;
-
+            }
+            catch (Exception ex)
+            {
+                logger!.WriteFile(ex.ToString());
+                Symbol = null;
+                Timeout = 0;
+                e = ex;
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message, ConsoleColor.Red);
+                return $"Failed to buy: {message}";
+            }
+            try
+            {
                 User userApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
-                var currency = symbol.Split('-')[0];
+                var currency = Symbol.Split('-')[0];
                 var balanceResult = userApi.GetAccountList(currency, AccountType.Trading).Result;
                 CoinBalance = balanceResult[0].Available;
 
@@ -138,14 +151,33 @@ namespace Valloon.Kucoin
                 var orderResultText2 = JContainer.FromObject(closeOrderResult).ToString();
 
                 e = null;
-                return $"<pre>{currency} Balance = {CoinBalance}\nstart = {StartPrice}\nentry = {BuyPrice:F3}\nclose = {closePrice}</pre>";
+                returnMessage += $"<pre>{currency} Balance = {CoinBalance}\nstart = {StartPrice}\nentry = {BuyPrice:F3}\nclose = {closePrice}</pre>";
             }
             catch (Exception ex)
             {
                 logger!.WriteFile(ex.ToString());
-                Symbol = null;
-                Timeout = 0;
                 e = ex;
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                Logger.WriteLine(message, ConsoleColor.Red);
+                returnMessage += message;
+            }
+            return returnMessage;
+        }
+
+        public static string BalanceNow()
+        {
+            if (Symbol == null) return "Symbol not selected.";
+            try
+            {
+                User userApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
+                var currency = Symbol.Split('-')[0];
+                var balanceResult = userApi.GetAccountList(currency, AccountType.Trading).Result;
+                var balance = balanceResult[0].Available;
+                return $"<pre>{currency} Balance = {balance}</pre>";
+            }
+            catch (Exception ex)
+            {
+                logger!.WriteFile(ex.ToString());
                 string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
                 Logger.WriteLine(message, ConsoleColor.Red);
                 return message;

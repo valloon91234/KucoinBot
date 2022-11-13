@@ -184,6 +184,13 @@ namespace Valloon.Kucoin
                                     }
                                 }
                                 break;
+                            case "/b":
+                                if (isAdmin)
+                                {
+                                    string replyMessageText = KucoinClient.BalanceNow();
+                                    await botClient.SendTextMessageAsync(chatId: chatId, text: replyMessageText, cancellationToken: cancellationToken, parseMode: ParseMode.Html);
+                                }
+                                break;
                             case string x when x.StartsWith("/balance", StringComparison.OrdinalIgnoreCase):
                                 if (isAdmin)
                                 {

@@ -508,5 +508,23 @@ namespace Valloon.Kucoin
                 Thread.Sleep(1000);
             }
         }
+
+        public static string BalanceNow()
+        {
+            if (Currency == null) return "Currency not selected.";
+            try
+            {
+                var balanceResult = UserApi.GetAccountList(Currency, AccountType.Trading).Result;
+                var balance = balanceResult[0].Available;
+                return $"<pre>{Currency} Balance = {balance}</pre>";
+            }
+            catch (Exception ex)
+            {
+                string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                logger.WriteLine("stop order: " + message, ConsoleColor.Red, false);
+                logger.WriteFile(ex.ToString());
+                return message;
+            }
+        }
     }
 }
