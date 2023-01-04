@@ -276,17 +276,30 @@ namespace Valloon.Kucoin
 
             try
             {
-                var orderResult = tradeApi.CreateMarketSpotOrder(new MarketOrder
+                for (int i = 0; i < 5; i++)
                 {
-                    ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
-                    Side = Side.Sell,
-                    Symbol = Symbol,
-                    Type = OrderType.Market,
-                    Remark = $"Close",
-                    Funds = size == null ? 1000000 : size
-                }).Result;
-                var orderResultText = JContainer.FromObject(orderResult).ToString();
-                logger!.WriteLine(orderResultText, ConsoleColor.Green);
+                    try
+                    {
+                        var orderResult = tradeApi.CreateMarketSpotOrder(new MarketOrder
+                        {
+                            ClientOid = DateTime.UtcNow.ToString("yyyyMMdd_HHmmssfff"),
+                            Side = Side.Sell,
+                            Symbol = Symbol,
+                            Type = OrderType.Market,
+                            Remark = $"Close",
+                            Funds = size == null ? 1000000 : size
+                        }).Result;
+                        var orderResultText = JContainer.FromObject(orderResult).ToString();
+                        logger!.WriteLine(orderResultText, ConsoleColor.Green);
+                    }
+                    catch (Exception ex)
+                    {
+                        string message = ex.InnerException == null ? ex.Message : ex.InnerException.Message;
+                        if (message.Contains("Balance insufficient"))
+                            break;
+                    }
+                    Thread.Sleep(1000);
+                }
 
                 var currency = Symbol.Split('-')[0];
                 User userApi = new(KucoinKey, KucoinSecret, KucoinPassphrase);
